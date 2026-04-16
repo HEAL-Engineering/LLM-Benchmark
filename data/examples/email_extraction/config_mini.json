@@ -1,0 +1,96 @@
+{
+  "name": "Email Insight Extraction (Mini)",
+  "output_mode": "json_schema",
+  "system_prompt_file": "system_prompt.md",
+
+  "response_schema": {
+    "type": "object",
+    "required": ["version", "extracted_at", "sender", "summary", "topics", "entities", "persona_signals"],
+    "additionalProperties": false,
+    "properties": {
+      "version": {
+        "type": "string",
+        "description": "Schema version for backwards compatibility"
+      },
+      "extracted_at": {
+        "type": ["string", "null"],
+        "description": "When insights were extracted (ISO format or null)"
+      },
+      "sender": {
+        "type": "object",
+        "required": ["name", "type", "domain"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "description": "Sender name" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "retailer", "financial", "travel", "social", "work",
+              "newsletter", "government", "healthcare", "utility",
+              "personal", "other"
+            ]
+          },
+          "domain": { "type": "string", "description": "Email domain" }
+        }
+      },
+      "summary": {
+        "type": "string",
+        "description": "One-sentence summary of the email's purpose/content"
+      },
+      "topics": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "3-5 topic tags"
+      },
+      "entities": {
+        "type": "object",
+        "required": ["brands", "amounts", "dates", "locations"],
+        "additionalProperties": false,
+        "properties": {
+          "brands":    { "type": "array", "items": { "type": "string" } },
+          "amounts":   { "type": "array", "items": { "type": "number" } },
+          "dates":     { "type": "array", "items": { "type": "string" } },
+          "locations": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "persona_signals": {
+        "type": "object",
+        "required": ["interests", "behaviors", "life_events"],
+        "additionalProperties": false,
+        "properties": {
+          "interests":   { "type": "array", "items": { "type": "string" } },
+          "behaviors":   { "type": "array", "items": { "type": "string" } },
+          "life_events": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  },
+
+  "test_cases": [
+    {
+      "id": "mermaid_promo",
+      "description": "Mermaid Pro/Enterprise promotional newsletter",
+      "user_prompt": "Extract insights from this email:\n\nSubject: Unlimited Diagrams, AI Driven Tools, Stronger Privacy\nFrom: team@mermaidchart.com\nBody:\nMermaid Pro/Enterprise offers a large set of features designed to reduce your workload and simplify complex diagramming tasks. With Pro, you'll get:\n\nUnlimited Mermaid AI Assistance - Build as many visuals or ask as many questions as you'd like with unlimited Mermaid AI credits.\nUnlimited Personal and Organization Diagram Files - Create, store and manage your diagrams all in one place.\nUnlimited AI Diagram Repair - Instantly troubleshoot and polish your diagrams with AI Diagram repair.\nEnhanced Data Confidentiality - Pro and Enterprise user diagram data will never be used to train our models.\n\nEnterprise users also get:\nSingle Sign On - Keep your data within your Org space with SSO and prevent documentation loss.\nDedicated Customer Success Manager - Get tailored Mermaid support from one of our CSM's for you and your team!\n\nTry Mermaid Pro/Enterprise today and get one week completely free!\nStart My 7-Day Free Trial\n\n548 Market St PMB 75432 San Francisco, CA, 94104"
+    },
+    {
+      "id": "amazon_order_confirmation",
+      "description": "Amazon order shipment confirmation with tracking",
+      "user_prompt": "Extract insights from this email:\n\nSubject: Your Amazon order has shipped!\nFrom: ship-confirm@amazon.com\nBody:\nHello,\n\nYour order #114-3941689-8772620 has shipped!\n\nItems in this shipment:\n1x Sony WH-1000XM5 Wireless Noise Canceling Headphones - Black ($278.00)\n1x Anker USB-C to Lightning Cable, 6ft ($12.99)\n\nShipping to:\nMcKay S.\n1847 S 200 E, Apt 4\nSalt Lake City, UT 84115\n\nEstimated delivery: April 18, 2026\nCarrier: UPS\nTracking number: 1Z999AA10123456784\n\nTrack your package: https://www.amazon.com/gp/your-account/order-history\n\nTotal: $290.99 (includes $0.00 tax)\nPayment method: Visa ending in 4821\n\nThank you for shopping with us!\nAmazon.com"
+    },
+    {
+      "id": "sentry_alert_digest",
+      "description": "Sentry error alert digest for Python FastAPI project",
+      "user_prompt": "Extract insights from this email:\n\nSubject: Notifications for python-fastapi\nFrom: noreply@getsentry.com\nBody:\nNotifications for python-fastapi\nFeb. 21, 2026, 9:13 p.m. MST to Feb. 21, 2026, 9:13 p.m. MST\n\nSend a notification for high priority issues\n\n* {'logger': 'Heal-Api-Test', 'timestamp': '2026-02-22T04:13:02.927164Z', 'message': 'Failed to exchange public token: Plaid API error', 'log_level': 'ERROR'} (1 event, 0 users)\nhttps://sentry.io/organizations/heal-m0/issues/7283254658/?referrer=digest_email\n\n* {'logger': 'Heal-Api-Test', 'timestamp': '2026-02-22T04:13:02.415618Z', 'message': 'Failed to fetch for credential 2: Network timeout', 'log_level': 'ERROR'} (1 event, 0 users)\nhttps://sentry.io/organizations/heal-m0/issues/7283254632/?referrer=digest_email\n\nUnsubscribe: https://heal-m0.sentry.io/unsubscribe/project/4510228633550848/"
+    }
+  ],
+
+  "models": [
+    "openai/gpt-4.1-nano",
+    "google/gemini-2.5-flash-lite"
+  ],
+
+  "evaluator_model": "anthropic/claude-sonnet-4-6",
+  "max_tokens": 600,
+  "temperature": 0.0,
+  "runs_per_test": 1
+}

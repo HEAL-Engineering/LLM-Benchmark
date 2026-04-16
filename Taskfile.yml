@@ -1,0 +1,122 @@
+version: '3'
+
+# LLM Benchmark - Task Runner
+# Runtime mode: reads .mode (fallback .mode.default, fallback "uv")
+# Switch modes: task mode:docker / task mode:uv
+
+includes:
+  helpers:
+    taskfile: ./tasks/helpers.yml
+    dir: .
+
+tasks:
+  # === Main Entry Points ===
+
+  default:
+    desc: "Show available tasks"
+    aliases: [help]
+    silent: true
+    cmds:
+      - task --list
+
+  setup:
+    desc: "Interactive first-time setup (choose Docker or uv, install deps)"
+    interactive: true
+    cmds:
+      - task: helpers:setup_interactive
+
+  run:
+    desc: "Run a benchmark (pass args after --)"
+    deps: [helpers:check_env]
+    cmds:
+      - task: helpers:_run
+        vars:
+          CLI_ARGS: 'benchmark run {{.CLI_ARGS}}'
+
+  init:
+    desc: "Interactive config wizard"
+    interactive: true
+    cmds:
+      - task: helpers:_run
+        vars:
+          CLI_ARGS: 'benchmark init'
+
+  # === Development ===
+
+  lint:
+    desc: "Run ruff check + format check"
+    cmds:
+      - uv run ruff check .
+      - uv run ruff format --check .
+
+  lint:fix:
+    desc: "Auto-fix lint and formatting issues"
+    cmds:
+      - uv run ruff check --fix .
+      - uv run ruff format .
+
+  test:
+    desc: "Run pytest test suite"
+    cmds:
+      - uv run pytest tests/ -v
+
+  deps:
+    desc: "Install/sync dependencies"
+    cmds:
+      - |
+        MODE=$(cat .mode 2>/dev/null || cat .mode.default 2>/dev/null || echo "uv")
+        if [ "$MODE" = "docker" ]; then
+          docker compose build
+        else
+          uv sync
+        fi
+
+  # === Docker ===
+
+  build:
+    desc: "Build Docker image"
+    cmds:
+      - docker compose build
+
+  # === Cleanup ===
+
+  clean:
+    desc: "Remove results/, caches, and build artifacts"
+    cmds:
+      - task: helpers:clean_artifacts
+
+  clean:all:
+    desc: "Full cleanup (.venv, Docker images, all artifacts)"
+    cmds:
+      - task: helpers:clean_all
+
+  # === Mode Management ===
+
+  mode:
+    desc: "Print current runtime mode (docker or uv)"
+    silent: true
+    cmds:
+      - |
+        MODE=$(cat .mode 2>/dev/null || cat .mode.default 2>/dev/null || echo "uv")
+        echo "Current mode: $MODE"
+        if [ -f .mode ]; then
+          echo "  Source: .mode"
+        elif [ -f .mode.default ]; then
+          echo "  Source: .mode.default (no .mode override)"
+        else
+          echo "  Source: built-in default"
+        fi
+
+  mode:docker:
+    desc: "Switch to Docker mode"
+    silent: true
+    cmds:
+      - echo "docker" > .mode
+      - echo "Switched to Docker mode"
+
+  mode:uv:
+    desc: "Switch to uv mode"
+    silent: true
+    cmds:
+      - echo "uv" > .mode
+      - echo "Switched to uv mode"

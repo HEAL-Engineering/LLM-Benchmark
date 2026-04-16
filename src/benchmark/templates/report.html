@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ config.name }} - Benchmark Results</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --winner-bg: #0d2818;
+      --winner-border: #238636;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+    h2 {
+      font-size: 1.3rem;
+      margin: 2rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 1.1rem; display: inline; margin: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    th {
+      background: var(--surface);
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    tr:hover { background: rgba(88, 166, 255, 0.04); }
+    tr.winner { background: var(--winner-bg); }
+    .model-name { font-weight: 600; white-space: nowrap; }
+    .pass { color: var(--green); font-weight: 600; }
+    .fail { color: var(--red); font-weight: 600; }
+    .score-badge {
+      background: var(--accent);
+      color: var(--bg);
+      padding: 0.15rem 0.5rem;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .winner-card {
+      background: var(--winner-bg);
+      border: 2px solid var(--winner-border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      margin: 2rem 0;
+      text-align: center;
+    }
+    .winner-label {
+      color: var(--green);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+    .winner-model { font-size: 1.4rem; font-weight: 700; margin-bottom: 1rem; }
+    .winner-stats {
+      display: flex;
+      justify-content: center;
+      gap: 2.5rem;
+      flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat-value {
+      display: block;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .stat-label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    details {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 1rem 0;
+      overflow: hidden;
+    }
+    summary {
+      padding: 0.8rem 1rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    summary:hover { background: rgba(88, 166, 255, 0.06); }
+    .detail-table { margin: 0; }
+    .detail-table th:first-child,
+    .detail-table td:first-child { border-left: none; }
+    .detail-table th:last-child,
+    .detail-table td:last-child { border-right: none; }
+    .detail-table tr:last-child td { border-bottom: none; }
+    .reasoning { color: var(--text-muted); font-size: 0.8rem; max-width: 300px; }
+    .score-high { color: var(--green); font-weight: 600; }
+    .score-mid { color: var(--yellow); font-weight: 600; }
+    .score-low { color: var(--red); font-weight: 600; }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ config.name }}</h1>
+    <p class="subtitle">
+      {{ config.models | length }} models &middot;
+      {{ config.test_cases | length }} test cases &middot;
+      {{ config.runs_per_test }} run(s) &middot;
+      Mode: {{ config.output_mode }} &middot;
+      Evaluator: {{ config.evaluator_model }} &middot;
+      Generated {{ timestamp }}
+    </p>
+  </header>
+
+  {# ── Winner Card ── #}
+  {% if winner %}
+  <div class="winner-card">
+    <div class="winner-label">Recommended Model</div>
+    <div class="winner-model">{{ winner.model }}</div>
+    <div class="winner-stats">
+      <div class="stat">
+        <span class="stat-value">{{ "%.1f" | format(winner.avg_quality_score) }}/10</span>
+        <span class="stat-label">Quality</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">{{ "%.0f" | format(winner.avg_latency_ms) }}ms</span>
+        <span class="stat-label">Latency</span>
+      </div>
+      {% if has_schema %}
+      <div class="stat">
+        <span class="stat-value">{{ "%.0f%%" | format(winner.schema_pass_rate * 100) }}</span>
+        <span class="stat-label">Schema</span>
+      </div>
+      {% endif %}
+      <div class="stat">
+        {% if winner.estimated_cost_per_1k >= 0 %}
+        <span class="stat-value">${{ "%.4f" | format(winner.estimated_cost_per_1k) }}</span>
+        {% else %}
+        <span class="stat-value">N/A</span>
+        {% endif %}
+        <span class="stat-label">Cost/1K</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Summary Table ── #}
+  <h2>Model Comparison</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Model</th><th>Latency</th><th>Tokens</th>
+        {% if has_schema %}<th>Schema</th>{% endif %}
+        <th>Quality</th><th>Cost/1K</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in ranked %}
+      <tr{% if loop.first %} class="winner"{% endif %}>
+        <td>{{ loop.index }}</td>
+        <td class="model-name">{{ s.model }}</td>
+        <td>{{ "%.0f" | format(s.avg_latency_ms) }}ms</td>
+        <td>{{ s.avg_total_tokens | int }}</td>
+        {% if has_schema %}
+        <td class="{{ 'pass' if s.schema_pass_rate == 1.0 else 'fail' }}">
+          {{ "%.0f%%" | format(s.schema_pass_rate * 100) }}
+        </td>
+        {% endif %}
+        <td><span class="score-badge">{{ "%.1f" | format(s.avg_quality_score) }}</span>/10</td>
+        <td>
+          {% if s.estimated_cost_per_1k >= 0 %}
+          ${{ "%.4f" | format(s.estimated_cost_per_1k) }}
+          {% else %}
+          N/A
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {# ── Quality Breakdown ── #}
+  <h2>Quality Breakdown</h2>
+  {% for s in ranked %}
+  {% if s.quality_scores %}
+  <details open>
+    <summary><h3>{{ s.model }}</h3></summary>
+    <table class="detail-table">
+      <thead>
+        <tr>
+          <th>Test Case</th>
+          {% if has_schema %}<th>Schema</th>{% endif %}
+          <th>Accuracy</th>
+          <th>Complete</th><th>Concise</th><th>Avg</th><th>Reasoning</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for qs in s.quality_scores %}
+        <tr>
+          <td>{{ qs.test_case_id }}</td>
+          {% if has_schema %}
+          <td><span class="{{ score_class(qs.schema_compliance or 0) }}">{{ qs.schema_compliance }}</span></td>
+          {% endif %}
+          <td><span class="{{ score_class(qs.accuracy) }}">{{ qs.accuracy }}</span></td>
+          <td><span class="{{ score_class(qs.completeness) }}">{{ qs.completeness }}</span></td>
+          <td><span class="{{ score_class(qs.conciseness) }}">{{ qs.conciseness }}</span></td>
+          <td><strong>{{ "%.1f" | format(qs.average) }}</strong></td>
+          <td class="reasoning">{{ qs.reasoning }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+  {% endfor %}
+
+  <footer>
+    Generated by <strong>llm-benchmark</strong> &middot;
+    Pricing from OpenRouter &middot;
+    Quality scored by {{ config.evaluator_model }}
+  </footer>
+</body>
+</html>

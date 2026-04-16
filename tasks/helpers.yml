@@ -1,0 +1,224 @@
+version: '3'
+
+# Internal Helper Tasks
+# Mode detection, setup wizard, environment checks, and cleanup
+
+tasks:
+  # === Mode Detection ===
+
+  _detect_mode:
+    desc: "Detect runtime mode from .mode or .mode.default"
+    silent: true
+    cmds:
+      - |
+        MODE=$(cat .mode 2>/dev/null || cat .mode.default 2>/dev/null || echo "uv")
+        echo "$MODE"
+
+  _run:
+    desc: "Mode-aware command executor"
+    silent: true
+    cmds:
+      - |
+        MODE=$(cat .mode 2>/dev/null || cat .mode.default 2>/dev/null || echo "uv")
+        if [ "$MODE" = "docker" ]; then
+          docker compose run --rm benchmark {{.CLI_ARGS}}
+        else
+          uv run {{.CLI_ARGS}}
+        fi
+
+  # === Environment Checks ===
+
+  check_uv:
+    silent: true
+    cmds:
+      - |
+        if ! command -v uv >/dev/null 2>&1; then
+          echo "uv is not installed"
+          echo ""
+          echo "Install uv:"
+          echo "  brew install uv"
+          echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+          exit 1
+        fi
+
+  check_docker:
+    silent: true
+    cmds:
+      - |
+        if ! docker info >/dev/null 2>&1; then
+          echo "Docker daemon is not running"
+          echo ""
+          echo "Please start Docker Desktop, then try again."
+          exit 1
+        fi
+
+  check_env:
+    desc: "Verify .env exists and OPENROUTER_API_KEY is set"
+    silent: true
+    cmds:
+      - |
+        if [ ! -f .env ]; then
+          echo ".env file not found."
+          echo ""
+          echo "Create one from the example:"
+          echo "  cp .env.example .env"
+          echo "  # Then add your OpenRouter API key"
+          exit 1
+        fi
+
+        KEY=$(grep -E '^OPENROUTER_API_KEY=' .env | cut -d= -f2-)
+        if [ -z "$KEY" ]; then
+          echo "OPENROUTER_API_KEY is not set in .env"
+          echo ""
+          echo "Get a key at https://openrouter.ai/keys"
+          echo "Then add it to .env: OPENROUTER_API_KEY=sk-or-..."
+          exit 1
+        fi
+
+  # === Setup Wizard ===
+
+  setup_interactive:
+    interactive: true
+    silent: true
+    cmds:
+      - |
+        echo "========================================"
+        echo "  LLM Benchmark - Setup"
+        echo "========================================"
+        echo ""
+
+        # Step 1: Check prerequisites
+        echo "Checking prerequisites..."
+        HAS_UV="no"
+        HAS_DOCKER="no"
+
+        if command -v uv >/dev/null 2>&1; then
+          HAS_UV="yes"
+          echo "  uv: installed"
+        else
+          echo "  uv: not found"
+        fi
+
+        if docker info >/dev/null 2>&1; then
+          HAS_DOCKER="yes"
+          echo "  docker: running"
+        else
+          echo "  docker: not running"
+        fi
+        echo ""
+
+        if [ "$HAS_UV" = "no" ] && [ "$HAS_DOCKER" = "no" ]; then
+          echo "Neither uv nor Docker is available."
+          echo ""
+          echo "Install at least one:"
+          echo "  uv:     brew install uv"
+          echo "  Docker: https://docker.com/products/docker-desktop"
+          exit 1
+        fi
+
+        # Step 2: Choose mode
+        if [ "$HAS_UV" = "yes" ] && [ "$HAS_DOCKER" = "yes" ]; then
+          echo "Choose your runtime mode:"
+          echo ""
+          echo "  1) uv      (Recommended - faster, native Python)"
+          echo "  2) Docker  (Containerized, consistent)"
+          echo ""
+          printf "Enter your choice (1 or 2): "
+          read -r CHOICE
+          echo ""
+
+          case "$CHOICE" in
+            1) MODE="uv" ;;
+            2) MODE="docker" ;;
+            *)
+              echo "Invalid choice. Defaulting to uv."
+              MODE="uv"
+              ;;
+          esac
+        elif [ "$HAS_UV" = "yes" ]; then
+          MODE="uv"
+          echo "Using uv mode (Docker not available)."
+        else
+          MODE="docker"
+          echo "Using Docker mode (uv not available)."
+        fi
+
+        echo "$MODE" > .mode
+        echo "Mode set to: $MODE"
+        echo ""
+
+        # Step 3: Ensure .env exists
+        if [ ! -f .env ]; then
+          if [ -f .env.example ]; then
+            cp .env.example .env
+            echo "Created .env from .env.example"
+          else
+            echo "OPENROUTER_API_KEY=" > .env
+            echo "Created .env (empty key)"
+          fi
+          echo ""
+          echo "IMPORTANT: Add your OpenRouter API key to .env"
+          echo "  Get one at https://openrouter.ai/keys"
+          echo ""
+        else
+          echo ".env already exists."
+        fi
+
+        # Step 4: Install dependencies
+        if [ "$MODE" = "docker" ]; then
+          echo "Building Docker image..."
+          docker compose build
+        else
+          echo "Installing Python dependencies..."
+          uv sync
+        fi
+        echo ""
+
+        echo "Setup complete!"
+        echo ""
+        echo "Next steps:"
+        KEY=$(grep -E '^OPENROUTER_API_KEY=' .env | cut -d= -f2-)
+        if [ -z "$KEY" ]; then
+          echo "  1. Add your API key: edit .env"
+        fi
+        echo "  - Run a benchmark:  task run -- -i data/examples/email_extraction/config.json"
+        echo "  - Config wizard:    task init"
+        echo "  - Run tests:        task test"
+        echo "  - See all tasks:    task help"
+
+  # === Cleanup ===
+
+  clean_artifacts:
+    desc: "Remove results/, caches, and build artifacts"
+    silent: true
+    cmds:
+      - |
+        echo "Cleaning up..."
+        rm -rf results/
+        find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+        find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
+        find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+        rm -rf dist/ build/
+        echo "Cleaned: results/, caches, build artifacts"
+
+  clean_all:
+    desc: "Full cleanup including .venv and Docker images"
+    silent: true
+    cmds:
+      - task: clean_artifacts
+      - |
+        echo ""
+        echo "Removing .venv..."
+        rm -rf .venv/
+        echo "Removed .venv/"
+
+        if docker info >/dev/null 2>&1; then
+          echo ""
+          echo "Removing Docker images..."
+          docker compose down --rmi all 2>/dev/null || true
+          echo "Removed Docker images"
+        fi
+
+        echo ""
+        echo "Full cleanup complete. Run 'task setup' to start fresh."

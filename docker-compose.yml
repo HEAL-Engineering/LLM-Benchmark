@@ -1,0 +1,8 @@
+services:
+  benchmark:
+    build: .
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./results:/app/results
