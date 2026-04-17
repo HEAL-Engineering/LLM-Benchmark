@@ -119,8 +119,7 @@ def _run_benchmark(args: argparse.Namespace) -> None:
         evaluate_responses(
             summaries=summaries,
             api_key=settings.openrouter_api_key,
-            evaluator_model=config.evaluator_model,
-            output_mode=config.output_mode,
+            config=config,
         )
 
     # Generate reports

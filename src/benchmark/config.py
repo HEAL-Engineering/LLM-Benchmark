@@ -1,6 +1,6 @@
 """Configuration for the benchmark tool. Loads from environment variables via Pydantic."""
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class BenchmarkSettings(BaseSettings):
@@ -20,10 +20,13 @@ class BenchmarkSettings(BaseSettings):
 
     log_level: str = 'INFO'
 
-    model_config = {
-        'env_prefix': '',
-        'case_sensitive': False,
-    }
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8',
+        env_prefix='',
+        case_sensitive=False,
+        extra='ignore',
+    )
 
     def validate_api_key(self) -> None:
         """Raise if the API key is not set."""

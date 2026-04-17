@@ -7,7 +7,7 @@ from pathlib import Path
 from openai import OpenAI, OpenAIError
 
 from benchmark.config import settings
-from benchmark.models import ModelSummary, OutputMode, QualityScore, RunMetrics
+from benchmark.models import BenchmarkConfig, ModelSummary, OutputMode, QualityScore, RunMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,7 @@ def _load_eval_system_prompt(output_mode: OutputMode) -> str:
 def evaluate_responses(
     summaries: list[ModelSummary],
     api_key: str,
-    evaluator_model: str,
-    output_mode: OutputMode = OutputMode.JSON_SCHEMA,
+    config: BenchmarkConfig,
 ) -> list[ModelSummary]:
     """
     Use an AI evaluator to score each model's responses for quality.
@@ -40,8 +39,17 @@ def evaluate_responses(
         base_url=settings.openrouter_base_url,
     )
 
+    evaluator_model = config.evaluator_model
+    output_mode = config.output_mode
     system_prompt = _load_eval_system_prompt(output_mode)
     score_schema = output_mode != OutputMode.TEXT
+
+    test_case_prompts: dict[str, str] = {tc.id: tc.user_prompt for tc in config.test_cases}
+    schema_str: str | None = (
+        json.dumps(config.response_schema, indent=2)
+        if output_mode == OutputMode.JSON_SCHEMA and config.response_schema
+        else None
+    )
 
     total_evals = sum(len([m for m in s.run_metrics if m.schema_valid]) for s in summaries)
     logger.info(
@@ -82,6 +90,9 @@ def evaluate_responses(
                 system_prompt=system_prompt,
                 metrics=metrics,
                 score_schema=score_schema,
+                original_user_prompt=test_case_prompts.get(metrics.test_case_id, ''),
+                task_system_prompt=config.system_prompt,
+                schema_str=schema_str,
             )
             scores.append(score)
 
@@ -99,14 +110,21 @@ def _evaluate_single(
     system_prompt: str,
     metrics: RunMetrics,
     score_schema: bool,
+    original_user_prompt: str,
+    task_system_prompt: str,
+    schema_str: str | None,
 ) -> QualityScore:
     """Evaluate a single model response using the AI evaluator."""
     response_block = f'```\n{metrics.raw_response}\n```'
-    user_prompt = (
-        f'## Original Prompt\n{metrics.test_case_id}\n\n'
-        f'## Model Response\n{response_block}\n\n'
-        f'Score this response.'
-    )
+    sections = [
+        f'## Task System Prompt (what the model was instructed to do)\n{task_system_prompt}',
+        f'## Original User Prompt (the input data)\n{original_user_prompt}',
+    ]
+    if schema_str:
+        sections.append(f'## Expected JSON Schema\n```json\n{schema_str}\n```')
+    sections.append(f'## Model Response\n{response_block}')
+    sections.append('Score this response.')
+    user_prompt = '\n\n'.join(sections)
 
     try:
         completion = client.chat.completions.create(
@@ -121,7 +139,7 @@ def _evaluate_single(
         )
 
         content = completion.choices[0].message.content or '{}'
-        data = json.loads(content)
+        data = json.loads(_strip_code_fences(content))
 
         return QualityScore(
             model=metrics.model,
@@ -151,3 +169,13 @@ def _evaluate_single(
 def _clamp(value: int) -> int:
     """Clamp a score to 0-10 range."""
     return max(0, min(10, int(value)))
+
+
+def _strip_code_fences(content: str) -> str:
+    """Strip leading/trailing markdown code fences (```json ... ```) that some models emit."""
+    stripped = content.strip()
+    if stripped.startswith('```'):
+        stripped = stripped.split('\n', 1)[1] if '\n' in stripped else stripped[3:]
+    if stripped.endswith('```'):
+        stripped = stripped.rsplit('```', 1)[0]
+    return stripped.strip()

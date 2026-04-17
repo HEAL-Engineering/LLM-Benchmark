@@ -9,8 +9,10 @@ venv/
 .env
 .env.local
 results/
+results_full/
 *.lock
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/
 .mode
+.DS_Store

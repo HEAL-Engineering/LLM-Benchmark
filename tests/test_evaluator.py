@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from openai import OpenAIError
 
 from benchmark.evaluator import _load_eval_system_prompt, evaluate_responses
-from benchmark.models import ModelSummary, OutputMode
+from benchmark.models import BenchmarkConfig, ModelSummary, OutputMode, TestCase
 from tests.conftest import make_run_metrics
 
 
@@ -16,6 +16,21 @@ def _mock_completion(response_data: dict) -> MagicMock:
     completion.choices = [MagicMock()]
     completion.choices[0].message.content = json.dumps(response_data)
     return completion
+
+
+def _config(output_mode: OutputMode, test_case_ids: list[str]) -> BenchmarkConfig:
+    """Build a minimal BenchmarkConfig for evaluator tests."""
+    return BenchmarkConfig(
+        name='test',
+        system_prompt='test system prompt',
+        output_mode=output_mode,
+        response_schema={'type': 'object'} if output_mode == OutputMode.JSON_SCHEMA else None,
+        test_cases=[
+            TestCase(id=tc, description='t', user_prompt='test user prompt') for tc in test_case_ids
+        ],
+        models=['model-a'],
+        evaluator_model='eval/model',
+    )
 
 
 class TestLoadEvalSystemPrompt:
@@ -69,8 +84,7 @@ class TestEvaluateResponses:
         result = evaluate_responses(
             [summary],
             api_key='test-key',
-            evaluator_model='eval/model',
-            output_mode=OutputMode.JSON_SCHEMA,
+            config=_config(OutputMode.JSON_SCHEMA, ['test_1']),
         )
 
         assert len(result[0].quality_scores) == 1
@@ -115,8 +129,7 @@ class TestEvaluateResponses:
         result = evaluate_responses(
             [summary],
             api_key='test-key',
-            evaluator_model='eval/model',
-            output_mode=OutputMode.TEXT,
+            config=_config(OutputMode.TEXT, ['test_1']),
         )
 
         qs = result[0].quality_scores[0]
@@ -152,8 +165,7 @@ class TestEvaluateResponses:
         result = evaluate_responses(
             [summary],
             api_key='test-key',
-            evaluator_model='eval/model',
-            output_mode=OutputMode.JSON_SCHEMA,
+            config=_config(OutputMode.JSON_SCHEMA, ['test_1']),
         )
 
         qs = result[0].quality_scores[0]
@@ -189,8 +201,7 @@ class TestEvaluateResponses:
         result = evaluate_responses(
             [summary],
             api_key='test-key',
-            evaluator_model='eval/model',
-            output_mode=OutputMode.JSON_SCHEMA,
+            config=_config(OutputMode.JSON_SCHEMA, ['test_1']),
         )
 
         qs = result[0].quality_scores[0]
@@ -232,8 +243,7 @@ class TestEvaluateResponses:
         result = evaluate_responses(
             [summary],
             api_key='test-key',
-            evaluator_model='eval/model',
-            output_mode=OutputMode.JSON_SCHEMA,
+            config=_config(OutputMode.JSON_SCHEMA, ['test_1', 'test_2']),
         )
 
         assert result[0].avg_quality_score == 10.0
