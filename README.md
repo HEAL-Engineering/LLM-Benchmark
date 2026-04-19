@@ -35,7 +35,7 @@ uv run benchmark run -i your_config.json
 1. **Define** your test in a JSON config: system prompt, test cases, models to compare, and optionally a response schema
 2. **Run** -- the tool sends each test case to every model via OpenRouter
 3. **Measure** -- latency, token usage, schema compliance, and estimated cost per 1K requests (live pricing from OpenRouter)
-4. **Evaluate** -- an AI evaluator (default: Claude Sonnet) scores each response for accuracy, completeness, and conciseness
+4. **Evaluate** -- an AI evaluator (default: Claude Sonnet) scores each response on accuracy, completeness, conciseness, and (for JSON modes) schema compliance
 5. **Report** -- results as a Rich terminal table, JSON file, Markdown file, and a self-contained HTML report
 
 ## Output Modes
@@ -182,22 +182,22 @@ task test
 
 ```
 src/benchmark/
-  cli.py              - CLI entry point (argparse subcommands)
-  runner.py            - Runs models against test cases, collects metrics
-  models.py            - Pydantic models (config, metrics, scores, summaries)
-  evaluator.py         - AI quality evaluation
-  reporter.py          - 4 output formats (console, JSON, Markdown, HTML)
-  config.py            - Environment variable settings
+  cli.py            - CLI entry point (argparse subcommands)
+  runner.py         - Runs models against test cases, collects metrics
+  models.py         - Pydantic models (config, metrics, scores, summaries)
+  evaluator.py      - AI quality evaluation
+  reporter.py       - 4 output formats (console, JSON, Markdown, HTML)
+  config.py         - Environment variable settings
   providers/
-    base.py            - LLMProvider Protocol
-    openrouter.py      - OpenRouter provider (OpenAI SDK with base_url)
-  prompts/             - Evaluator system prompts (json vs text modes)
-  templates/           - Jinja2 HTML template
+    base.py         - LLMProvider Protocol
+    openrouter.py   - OpenRouter provider (OpenAI SDK with base_url)
+  prompts/          - Evaluator system prompts (json vs text modes)
+  templates/        - Jinja2 HTML template
 
-data/examples/         - Example benchmark configs and data
-tests/                 - 44 integration tests (mocked API, no real calls)
-Taskfile.yml           - Task runner (mode-aware docker/uv)
-tasks/helpers.yml      - Internal task helpers
+data/examples/      - Example benchmark configs and data
+tests/              - 44 integration tests (mocked API, no real calls)
+Taskfile.yml        - Task runner (mode-aware docker/uv)
+tasks/helpers.yml   - Internal task helpers
 ```
 
 ## License
